@@ -100,10 +100,14 @@ ISR (SIG_OVERFLOW1)
     //TCNT1 = 63581; //65536 - 1,953 = 63581 - Preload timer 1 for 63581 clicks. Should be 0.125s per ISR call - 8 times faster than normal time
 	
 	if(flip == 0)
+	{
 		flip = 1;
+	}
 	else
+	{
 		flip = 0;
-		
+	}
+	
 	seconds++;
 	if(seconds == 60)
 	{
@@ -417,13 +421,6 @@ void display_time(uint16_t time_on)
 		display_number(seconds % 10, 4); 
 		delay_us(bright_level);
 #endif
-		
-		//Check whether it is AM or PM and turn on dot
-		if(ampm == AM)
-		{
-			//display_number(12, 5); //Turn on dot on digit 3
-			delay_us(bright_level);
-		}
 		
 		//Flash colon for each second
 		if(flip == 1) 
