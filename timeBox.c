@@ -76,20 +76,15 @@ void delay_us(uint16_t x);
 
 void display_number(uint8_t number, uint8_t digit);
 void display_time(uint16_t time_on);
-void display_alarm_time(uint16_t time_on);
+
 void clear_display(void);
 void check_buttons(void);
-void check_alarm(void);
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 //Declare global variables
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 uint8_t hours, minutes, seconds, ampm, flip;
-uint8_t hours_alarm, minutes_alarm, seconds_alarm, ampm_alarm, flip_alarm;
-uint8_t hours_alarm_snooze, minutes_alarm_snooze, seconds_alarm_snooze, ampm_alarm_snooze;//, flip_alarm;
 
-uint8_t alarm_going;
-uint8_t snooze;
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 ISR (SIG_OVERFLOW1) 
@@ -103,8 +98,6 @@ ISR (SIG_OVERFLOW1)
 
 	//Debug with faster time!
     //TCNT1 = 63581; //65536 - 1,953 = 63581 - Preload timer 1 for 63581 clicks. Should be 0.125s per ISR call - 8 times faster than normal time
-	
-	flip_alarm = 1;
 	
 	if(flip == 0)
 		flip = 1;
@@ -147,37 +140,9 @@ int main (void)
 	while(1)
 	{
 		check_buttons(); //See if we need to set the time or snooze
-		check_alarm(); //See if the current time is equal to the alarm time
 	}
 	
     return(0);
-}
-
-//Check to see if the time is equal to the alarm time
-void check_alarm(void)
-{
-	//Check wether the alarm slide switch is on or off
-	if( (PINB & (1<<BUT_ALARM)) != 0)
-	{
-		if (alarm_going == FALSE)
-		{
-			//Check to see if the time equals the alarm time
-			if( (hours == hours_alarm) && (minutes == minutes_alarm) && (seconds == seconds_alarm) && (ampm == ampm_alarm) && (snooze == FALSE) )
-			{
-				//Set it off!
-				alarm_going = TRUE;
-			}
-
-			//Check to see if we need to set off the alarm again after a ~9 minute snooze
-			if( (hours == hours_alarm_snooze) && (minutes == minutes_alarm_snooze) && (seconds == seconds_alarm_snooze) && (ampm == ampm_alarm_snooze) && (snooze == TRUE) )
-			{
-				//Set it off!
-				alarm_going = TRUE;
-			}
-		}
-	}
-	else
-		alarm_going = FALSE;
 }
 
 //Checks buttons for system settings
@@ -187,35 +152,6 @@ void check_buttons(void)
 	uint8_t sling_shot = 0;
 	uint8_t minute_change = 1;
 	uint8_t previous_button = 0;
-	
-	//If the user hits snooze while alarm is going off, record time so that we can set off alarm again in 9 minutes
-	if ( (PIND & (1<<BUT_SNOOZE)) == 0 && alarm_going == TRUE)
-	{
-		alarm_going = FALSE; //Turn off alarm
-		snooze = TRUE; //But remember that we are in snooze mode, alarm needs to go off again in a few minutes
-		
-		seconds_alarm_snooze = 0;
-		minutes_alarm_snooze = minutes + 9; //Snooze to 9 minutes from now
-		hours_alarm_snooze = hours;
-		ampm_alarm_snooze = ampm;
-		
-		if(minutes_alarm_snooze > 59)
-		{
-			minutes_alarm_snooze -= 60;
-			hours_alarm_snooze++;
-
-			if(hours_alarm_snooze == 12)
-			{
-				if(ampm_alarm_snooze == AM) 
-					ampm_alarm_snooze = PM;
-				else
-					ampm_alarm_snooze = AM;
-			}
-
-			if(hours_alarm_snooze == 13) hours_alarm_snooze = 1;
-		}
-		
-	}
 
 	//Check for set time
 	if ( (PINB & ((1<<BUT_UP)|(1<<BUT_DOWN))) == 0)
@@ -333,139 +269,6 @@ void check_buttons(void)
 			}
 		}
 	}
-
-
-	//Check for set alarm
-	if ( (PIND & (1<<BUT_SNOOZE)) == 0)
-	{
-		TIMSK2 = 0;
-		display_alarm_time(2000);
-
-		if ( (PIND & (1<<BUT_SNOOZE)) == 0)
-		{
-			//You've been holding snooze for 2 seconds
-			//Set alarm time!
-
-			//Disable the regular display clock interrupt
-			TIMSK2 = 0;
-
-			while( (PIND & (1<<BUT_SNOOZE)) == 0) //Wait for you to stop pressing the buttons
-			{
-				clear_display();
-				delay_ms(250);
-
-				display_alarm_time(250); //Display current time for 1000ms
-			}
-
-			while(1)
-			{
-				display_alarm_time(100); //Display current time for 100ms
-				
-				if ( (PIND & (1<<BUT_SNOOZE)) == 0) //All done!
-				{
-					for(i = 0 ; i < 4 ; i++)
-					{
-						display_alarm_time(250); //Display current time for 100ms
-						clear_display();
-						delay_ms(250);
-					}
-					
-					while((PIND & (1<<BUT_SNOOZE)) == 0) ; //Wait for you to release button
-					
-					TIMSK2 = (1<<TOIE2); //Re-enable the timer 2 interrupt
-					
-					break; 
-				}
-
-				if ( (PINB & (1<<BUT_UP)) == 0)
-				{
-					//Ramp minutes faster if we are holding the button
-					//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-					if(previous_button == BUT_UP) 
-						sling_shot++;
-					else
-					{	
-						sling_shot = 0;
-						minute_change = 1;
-					}
-						
-					previous_button = BUT_UP;
-					
-					if (sling_shot > 5)
-					{
-						minute_change++;
-						if(minute_change > 30) minute_change = 30;
-						sling_shot = 0;
-					}
-					//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-					minutes_alarm += minute_change;
-					if (minutes_alarm > 59)
-					{
-						minutes_alarm -= 60;
-						hours_alarm++;
-						if(hours_alarm == 13) hours_alarm = 1;
-
-						if(hours_alarm == 12)
-						{
-							if(ampm_alarm == AM) 
-								ampm_alarm = PM;
-							else
-								ampm_alarm = AM;
-						}
-					}
-					//delay_ms(100);
-				}
-				
-				if ( (PINB & (1<<BUT_DOWN)) == 0)
-				{
-					//Ramp minutes faster if we are holding the button
-					//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-					if(previous_button == BUT_DOWN) 
-						sling_shot++;
-					else
-					{	
-						sling_shot = 0;
-						minute_change = 1;
-					}
-						
-					previous_button = BUT_DOWN;
-					
-					if (sling_shot > 5)
-					{
-						minute_change++;
-						if(minute_change > 30) minute_change = 30;
-						sling_shot = 0;
-					}
-					//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-					minutes_alarm -= minute_change;
-					if(minutes_alarm > 60)
-					{
-						minutes_alarm = 59;
-						hours_alarm--;
-						if(hours_alarm == 0) hours_alarm = 12;
-
-						if(hours_alarm == 11)
-						{
-							if(ampm_alarm == AM) 
-								ampm_alarm = PM;
-							else
-								ampm_alarm = AM;
-						}
-					}
-					//delay_ms(100);
-				}
-				
-				//clear_display(); //Blink display
-				//delay_ms(100);
-			}
-		}
-		else
-			TIMSK2 = (1<<TOIE2); //Re-enable the timer 2 interrupt
-
-	}
-
 }
 
 void clear_display(void)
@@ -629,100 +432,10 @@ void display_time(uint16_t time_on)
 			delay_us(bright_level);
 		}
 		
-		//Indicate wether the alarm is on or off
-		if( (PINB & (1<<BUT_ALARM)) != 0)
-		{
-			display_number(11, 4); //Turn on dot on digit 4
-			delay_us(bright_level);
-
-			//If the alarm slide is on, and alarm_going is true, make noise!
-			if(alarm_going == TRUE && flip_alarm == 1)
-			{
-				clear_display();
-				flip_alarm = 0;
-			}
-		}
-		else
-		{
-			snooze = FALSE; //If the alarm switch is turned off, this resets the ~9 minute addtional snooze timer
-			
-			hours_alarm_snooze = 88; //Set these values high, so that normal time cannot hit the snooze time accidentally
-			minutes_alarm_snooze = 88;
-			seconds_alarm_snooze = 88;
-		}
-
 		clear_display();
 		delay_us(bright_level);
 	}
 }
-
-//Displays current alarm time
-//Brightness level is an amount of time the LEDs will be in - 200us is pretty dim but visible.
-//Amount of time during display is around : [ BRIGHT_LEVEL(us) * 5 + 10ms ] * 10
-//Roughly 11ms * 10 = 110ms
-//Time on is in (ms)
-void display_alarm_time(uint16_t time_on)
-{
-	uint16_t bright_level = 50;
-	
-	//time_on /= 11; //Take the time_on and adjust it for the time it takes to run the display loop below
-
-	for(uint16_t j = 0 ; j < time_on ; j++)
-	{
-		//Display normal hh:mm time
-		if(hours_alarm > 9)
-		{
-			display_number(hours_alarm / 10, 1); //Post to digit 1
-			delay_us(bright_level);
-		}
-
-		display_number(hours_alarm % 10, 2); //Post to digit 2
-		delay_us(bright_level);
-
-		display_number(minutes_alarm / 10, 3); //Post to digit 3
-		delay_us(bright_level);
-
-		display_number(minutes_alarm % 10, 4); //Post to digit 4
-		delay_us(bright_level);
-
-		
-		//During debug, display mm:ss
-		/*display_number(minutes_alarm / 10, 1); 
-		delay_us(bright_level);
-
-		display_number(minutes_alarm % 10, 2); 
-		delay_us(bright_level);
-
-		display_number(seconds_alarm / 10, 3); 
-		delay_us(bright_level);
-
-		display_number(seconds_alarm % 10, 4); 
-		delay_us(bright_level);
-
-		display_number(10, 5); //Display colon
-		delay_us(bright_level);*/
-
-
-		//Check whether it is AM or PM and turn on dot
-		if(ampm_alarm == AM)
-		{
-			display_number(12, 5); //Turn on dot on digit 3
-			delay_us(bright_level);
-		}
-		
-		//Flash colon for each second
-		if(flip == 1) 
-		{
-			display_number(10, 5); //Post to digit COL
-			delay_us(bright_level);
-		}
-
-		clear_display();
-		delay_ms(1);
-	}
-	
-}
-
 
 void ioinit(void)
 {
@@ -752,8 +465,6 @@ void ioinit(void)
 	hours = 88;
 	minutes = 88;
 	seconds = 88;
-
-	alarm_going = FALSE;
 	
 	sei(); //Enable interrupts
 
@@ -761,18 +472,6 @@ void ioinit(void)
 	minutes = 00;
 	seconds = 00;
 	ampm = AM;
-
-	hours_alarm = 11;
-	minutes_alarm = 55;
-	seconds_alarm = 00;
-	ampm_alarm = PM;
-
-	hours_alarm_snooze = 12;
-	minutes_alarm_snooze = 00;
-	seconds_alarm_snooze = 00;
-	ampm_alarm_snooze = AM;
-	
-	snooze = FALSE;
 
 	//Segment test
 	/*while(1)
