@@ -621,7 +621,7 @@ void display_time(uint16_t time_on)
 		//Check whether it is AM or PM and turn on dot
 		if(ampm == AM)
 		{
-			display_number(12, 5); //Turn on dot on digit 3
+			//display_number(12, 5); //Turn on dot on digit 3
 			delay_us(bright_level);
 		}
 		
