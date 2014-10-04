@@ -1,4 +1,4 @@
-﻿/*
+/*
     3-4-09
     Copyright Spark Fun Electronics© 2009
     Nathan Seidle
