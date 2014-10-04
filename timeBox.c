@@ -74,7 +74,6 @@ void ioinit (void);
 void delay_ms(uint16_t x); // general purpose delay
 void delay_us(uint16_t x);
 
-void siren(void);
 void display_number(uint8_t number, uint8_t digit);
 void display_time(uint16_t time_on);
 void display_alarm_time(uint16_t time_on);
@@ -227,8 +226,6 @@ void check_buttons(void)
 		{
 			//You've been holding up and down for 2 seconds
 			//Set time!
-
-			//siren(); //Make some noise to show that you're setting the time
 
 			while( (PINB & ((1<<BUT_UP)|(1<<BUT_DOWN))) == 0) //Wait for you to stop pressing the buttons
 				display_time(1000); //Display current time for 1000ms
@@ -642,7 +639,6 @@ void display_time(uint16_t time_on)
 			if(alarm_going == TRUE && flip_alarm == 1)
 			{
 				clear_display();
-				siren();
 				flip_alarm = 0;
 			}
 		}
@@ -728,41 +724,6 @@ void display_alarm_time(uint16_t time_on)
 }
 
 
-//Make noise for time_on in (ms)
-void siren(void)
-{
-
-	for(int i = 0 ; i < 500 ; i++)
-	{
-		cbi(PORTB, BUZZ1);
-		sbi(PORTB, BUZZ2);
-		delay_us(300);
-
-		sbi(PORTB, BUZZ1);
-		cbi(PORTB, BUZZ2);
-		delay_us(300);
-	}
-
-	cbi(PORTB, BUZZ1);
-	cbi(PORTB, BUZZ2);
-
-	delay_ms(50);
-	
-	for(int i = 0 ; i < 500 ; i++)
-	{
-		cbi(PORTB, BUZZ1);
-		sbi(PORTB, BUZZ2);
-		delay_us(300);
-
-		sbi(PORTB, BUZZ1);
-		cbi(PORTB, BUZZ2);
-		delay_us(300);
-	}
-
-	cbi(PORTB, BUZZ1);
-	cbi(PORTB, BUZZ2);
-}
-
 void ioinit(void)
 {
     //1 = output, 0 = input 
@@ -796,8 +757,6 @@ void ioinit(void)
 	
 	sei(); //Enable interrupts
 
-	siren(); //Make some noise at power up
-	
 	hours = 12;
 	minutes = 00;
 	seconds = 00;
