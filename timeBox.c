@@ -77,6 +77,8 @@ void delay_us(uint16_t x);
 void display_number(uint8_t number, uint8_t digit);
 void display_time(uint16_t time_on);
 
+void display_brightlevel_number_adjusted(uint8_t number, uint16_t bright_level);
+
 void clear_display(void);
 void check_buttons(void);
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -396,30 +398,30 @@ void display_time(uint16_t time_on)
 		if(hours > 9)
 		{
 			display_number(hours / 10, 1); //Post to digit 1
-			delay_us(bright_level);
+			display_brightlevel_number_adjusted(hours / 10, bright_level);
 		}
 
 		display_number(hours % 10, 2); //Post to digit 2
-		delay_us(bright_level);
+		display_brightlevel_number_adjusted(hours % 10, bright_level);
 
 		display_number(minutes / 10, 3); //Post to digit 3
-		delay_us(bright_level);
+		display_brightlevel_number_adjusted(minutes / 10, bright_level);
 
 		display_number(minutes % 10, 4); //Post to digit 4
-		delay_us(bright_level);
+		display_brightlevel_number_adjusted(minutes % 10, bright_level);
 #else
 		//During debug, display mm:ss
 		display_number(minutes / 10, 1); 
-		delay_us(bright_level);
+		display_brightlevel_number_adjusted(minutes / 10, bright_level);
 
 		display_number(minutes % 10, 2); 
-		delay_us(bright_level);
+		display_brightlevel_number_adjusted(minutes % 10, bright_level);
 
 		display_number(seconds / 10, 3); 
-		delay_us(bright_level);
+		display_brightlevel_number_adjusted(seconds / 10, bright_level);
 
 		display_number(seconds % 10, 4); 
-		delay_us(bright_level);
+		display_brightlevel_number_adjusted(seconds % 10, bright_level);
 #endif
 		
 		//Flash colon for each second
@@ -432,6 +434,56 @@ void display_time(uint16_t time_on)
 		clear_display();
 		delay_us(bright_level);
 	}
+}
+
+void display_brightlevel_number_adjusted(uint8_t number, uint16_t bright_level)
+{
+	// Based on the number being displayed, determine how many segments will be lit.
+	// Since more segments means a dimmer light, adjust the bright_level to keep
+	// them turned on for a longer time when more segments are lit
+	uint8_t segments;
+	
+	switch(number)
+	{
+		case 0:
+			segments = 6;
+			break;
+		case 1:
+			segments = 2;
+			break;
+		case 2:
+			segments = 5;
+			break;
+		case 3:
+			segments = 5;
+			break;
+		case 4:
+			segments = 4;
+			break;
+		case 5:
+			segments = 5;
+			break;
+		case 6:
+			segments = 6;
+			break;
+		case 7:
+			segments = 3;
+			break;
+		case 8:
+			segments = 7;
+			break;
+		case 9:
+			segments = 6;
+			break;
+		default: 
+			segments = 0;
+			break;
+	}
+	
+	uint16_t new_bright_level;
+	new_bright_level = (bright_level * (1 + (0.2 * segments)));
+	
+	delay_us(new_bright_level);
 }
 
 void ioinit(void)
